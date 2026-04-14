@@ -30,7 +30,8 @@
         <span x-text="`${entries.length} CVEs`"></span>
         <span>Sort by:
           <button @click="sortBy('drift_score')" :class="sort === 'drift_score' ? 'text-red-400' : 'hover:text-gray-300'" class="ml-1 underline">Drift Score</button>
-          <button @click="sortBy('cvss_variance')" :class="sort === 'cvss_variance' ? 'text-red-400' : 'hover:text-gray-300'" class="ml-1 underline">CVSS Variance</button>
+          <button @click="sortBy('github_score')" :class="sort === 'github_score' ? 'text-red-400' : 'hover:text-gray-300'" class="ml-1 underline">GitHub Score</button>
+          <button @click="sortBy('cvss_variance')" :class="sort === 'cvss_variance' ? 'text-red-400' : 'hover:text-gray-300'" class="ml-1 underline">CVSS Δ</button>
         </span>
       </div>
 
@@ -41,8 +42,9 @@
             <th class="py-2 pr-4">CVE ID</th>
             <th class="py-2 pr-4">Type</th>
             <th class="py-2 pr-4">Drift Score</th>
-            <th class="py-2 pr-4">CVSS Variance</th>
-            <th class="py-2 pr-4">Sources</th>
+            <th class="py-2 pr-4">NVD Score</th>
+            <th class="py-2 pr-4">GitHub Score</th>
+            <th class="py-2 pr-4">CVSS Δ</th>
             <th class="py-2 pr-4">CNA</th>
             <th class="py-2">NVD Status</th>
           </tr>
@@ -58,8 +60,9 @@
                 <span :class="driftTypeBadge(entry.drift_type)" class="px-2 py-0.5 rounded text-xs font-semibold" x-text="entry.drift_type"></span>
               </td>
               <td class="py-2 pr-4 font-bold" :class="scoreColor(entry.drift_score)" x-text="entry.drift_score.toFixed(1)"></td>
-              <td class="py-2 pr-4" x-text="entry.cvss_variance != null ? entry.cvss_variance.toFixed(1) : '—'"></td>
-              <td class="py-2 pr-4 text-gray-400" x-text="entry.source_count"></td>
+              <td class="py-2 pr-4" :class="entry.nvd_score != null ? 'text-gray-300' : 'text-gray-600'" x-text="entry.nvd_score != null ? entry.nvd_score.toFixed(1) : '—'"></td>
+              <td class="py-2 pr-4" :class="entry.github_score != null ? 'text-yellow-300' : 'text-gray-600'" x-text="entry.github_score != null ? entry.github_score.toFixed(1) : '—'"></td>
+              <td class="py-2 pr-4" x-text="entry.cvss_variance > 0 ? entry.cvss_variance.toFixed(1) : (entry.drift_type === 'rejected' ? 'N/A' : '—')"></td>
               <td class="py-2 pr-4 text-gray-500 text-xs" x-text="entry.assigning_cna ?? '—'"></td>
               <td class="py-2 text-xs" :class="statusColor(entry.nvd_status)" x-text="entry.nvd_status ?? '—'"></td>
             </tr>
