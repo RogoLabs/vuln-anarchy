@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-gray-950 text-gray-100">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vulnerability Anarchy — Drift Leaderboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="min-h-screen font-mono">
+
+  <div x-data="leaderboard()" x-init="init()" class="max-w-6xl mx-auto px-4 py-10">
+
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold tracking-tight text-red-400">⚡ Vulnerability Anarchy</h1>
+      <p class="mt-1 text-gray-400 text-sm">
+        The Drift Leaderboard — top 50 most disputed CVEs across NVD, GitHub Advisory, OSV, and CISA.
+      </p>
+    </header>
+
+    <!-- Loading state -->
+    <div x-show="loading" class="text-gray-500 text-sm">Loading leaderboard…</div>
+
+    <!-- Error state -->
+    <div x-show="error" class="text-red-400 text-sm" x-text="error"></div>
+
+    <!-- Table -->
+    <div x-show="!loading && !error">
+      <div class="flex items-center gap-4 mb-4 text-xs text-gray-500">
+        <span x-text="`${entries.length} CVEs`"></span>
+        <span>Sort by:
+          <button @click="sortBy('drift_score')" :class="sort === 'drift_score' ? 'text-red-400' : 'hover:text-gray-300'" class="ml-1 underline">Drift Score</button>
+          <button @click="sortBy('cvss_variance')" :class="sort === 'cvss_variance' ? 'text-red-400' : 'hover:text-gray-300'" class="ml-1 underline">CVSS Variance</button>
+        </span>
+      </div>
+
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr class="text-left text-gray-500 border-b border-gray-800">
+            <th class="py-2 pr-4">#</th>
+            <th class="py-2 pr-4">CVE ID</th>
+            <th class="py-2 pr-4">Type</th>
+            <th class="py-2 pr-4">Drift Score</th>
+            <th class="py-2 pr-4">CVSS Variance</th>
+            <th class="py-2 pr-4">Sources</th>
+            <th class="py-2 pr-4">CNA</th>
+            <th class="py-2">NVD Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(entry, i) in sorted" :key="entry.cve_id">
+            <tr class="border-b border-gray-900 hover:bg-gray-900 transition-colors">
+              <td class="py-2 pr-4 text-gray-600" x-text="i + 1"></td>
+              <td class="py-2 pr-4">
+                <a :href="`cve.html?id=${entry.cve_id}`" class="text-blue-400 hover:text-blue-300 hover:underline" x-text="entry.cve_id"></a>
+              </td>
+              <td class="py-2 pr-4">
+                <span :class="driftTypeBadge(entry.drift_type)" class="px-2 py-0.5 rounded text-xs font-semibold" x-text="entry.drift_type"></span>
+              </td>
+              <td class="py-2 pr-4 font-bold" :class="scoreColor(entry.drift_score)" x-text="entry.drift_score.toFixed(1)"></td>
+              <td class="py-2 pr-4" x-text="entry.cvss_variance != null ? entry.cvss_variance.toFixed(1) : '—'"></td>
+              <td class="py-2 pr-4 text-gray-400" x-text="entry.source_count"></td>
+              <td class="py-2 pr-4 text-gray-500 text-xs" x-text="entry.assigning_cna ?? '—'"></td>
+              <td class="py-2 text-xs" :class="statusColor(entry.nvd_status)" x-text="entry.nvd_status ?? '—'"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="mt-10 text-xs text-gray-700">
+      Built by <a href="https://github.com/jgamblin" class="hover:text-gray-500">Jerry Gamblin</a> at RogoLabs ·
+      Data sourced from NVD, GitHub Advisory Database, OSV.dev, CISA KEV, EPSS.
+    </footer>
+  </div>
+
+  <script>
+    function leaderboard() {
+      return {
+        loading: true,
+        error: null,
+        entries: [],
+        sort: 'drift_score',
+
+        async init() {
+          try {
+            const res = await fetch('data/indexes/leaderboard.json');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            this.entries = await res.json();
+          } catch (e) {
+            this.error = `Failed to load leaderboard: ${e.message}`;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        sortBy(field) {
+          this.sort = field;
+        },
+
+        get sorted() {
+          return [...this.entries].sort((a, b) => {
+            // Rejected always floats to top regardless of sort field
+            if (a.drift_type === 'rejected' && b.drift_type !== 'rejected') return -1;
+            if (b.drift_type === 'rejected' && a.drift_type !== 'rejected') return 1;
+            return (b[this.sort] ?? 0) - (a[this.sort] ?? 0);
+          });
+        },
+
+        driftTypeBadge(type) {
+          return {
+            'rejected': 'bg-red-900 text-red-300',
+            'conflict': 'bg-yellow-900 text-yellow-300',
+            'gap':      'bg-gray-800 text-gray-400',
+          }[type] ?? 'bg-gray-800 text-gray-400';
+        },
+
+        scoreColor(score) {
+          if (score >= 7) return 'text-red-400';
+          if (score >= 4) return 'text-yellow-400';
+          return 'text-green-400';
+        },
+
+        statusColor(status) {
+          if (!status) return 'text-gray-600';
+          if (status === 'Analyzed') return 'text-green-600';
+          if (status === 'Rejected') return 'text-red-500';
+          return 'text-yellow-600';
+        },
+      };
+    }
+  </script>
+
+</body>
+</html>
