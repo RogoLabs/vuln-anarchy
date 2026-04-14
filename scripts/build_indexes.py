@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Build pre-computed index files: leaderboard.json and anarchy-map.json."""
+"""Build pre-computed index files: leaderboard.json, anarchy-map.json, and rejected-with-ghsa.csv."""
 
+import csv
 import json
 from pathlib import Path
 
@@ -8,6 +9,7 @@ DATA_DIR = Path(__file__).parent.parent / "docs" / "data"
 INDEXES_DIR = DATA_DIR / "indexes"
 LEADERBOARD_PATH = INDEXES_DIR / "leaderboard.json"
 ANARCHY_MAP_PATH = INDEXES_DIR / "anarchy-map.json"
+REJECTED_CSV_PATH = DATA_DIR / "rejected-with-ghsa.csv"
 
 LEADERBOARD_SIZE = 50
 
@@ -83,6 +85,29 @@ def main():
     anarchy_map = [build_anarchy_map_entry(r) for r in all_records]
     ANARCHY_MAP_PATH.write_text(json.dumps(anarchy_map, indent=2))
     print(f"Anarchy Map written: {ANARCHY_MAP_PATH} ({len(anarchy_map)} entries)")
+
+    # Rejected-with-GHSA CSV: all CVEs rejected by NVD that still have a live GHSA
+    rejected_rows = []
+    for r in all_records:
+        nvd = r.get("sources", {}).get("nvd", {})
+        github = r.get("sources", {}).get("github", {})
+        if nvd.get("status") == "Rejected" and github.get("ghsa_id"):
+            ghsa_id = github["ghsa_id"]
+            rejected_rows.append({
+                "cve_id": r["cve_id"],
+                "ghsa_id": ghsa_id,
+                "ghsa_url": f"https://github.com/advisories/{ghsa_id}",
+                "github_cvss_score": github.get("cvss_score", ""),
+                "github_cvss_version": github.get("cvss_version", ""),
+                "nvd_status": "Rejected",
+                "assigning_cna": r.get("assigning_cna", ""),
+            })
+    rejected_rows.sort(key=lambda x: (-(x["github_cvss_score"] or 0), x["cve_id"]))
+    with REJECTED_CSV_PATH.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["cve_id", "ghsa_id", "ghsa_url", "github_cvss_score", "github_cvss_version", "nvd_status", "assigning_cna"])
+        writer.writeheader()
+        writer.writerows(rejected_rows)
+    print(f"Rejected-with-GHSA CSV written: {REJECTED_CSV_PATH} ({len(rejected_rows)} entries)")
 
 
 if __name__ == "__main__":
