@@ -143,6 +143,17 @@
       </div>
     </div>
 
+    <!-- Conflicts by Year chart -->
+    <div x-show="!loading && !error" class="mt-10">
+      <h2 class="text-xl font-bold text-white mb-1">Conflicts by Year</h2>
+      <p class="text-gray-400 text-sm mb-4">How many score conflicts were published each year, and which direction they skew.</p>
+      <div class="bg-surface-card border border-surface-border rounded-lg p-4 sm:p-6">
+        <div class="relative" style="height: 280px;">
+          <canvas id="yearChart"></canvas>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Footer -->
@@ -275,6 +286,75 @@
                 } else {
                   this.tooltip.visible = false;
                 }
+              },
+            },
+          });
+
+          this.buildYearChart();
+        },
+
+        buildYearChart() {
+          // Bucket conflicts by publication year
+          const byYear = {};
+          for (const e of this.entries) {
+            const year = e.published_date ? e.published_date.slice(0, 4) : 'Unknown';
+            if (!byYear[year]) byYear[year] = { nvdHigher: 0, ghHigher: 0 };
+            if ((e.nvd_score ?? 0) > (e.github_score ?? 0)) byYear[year].nvdHigher++;
+            else byYear[year].ghHigher++;
+          }
+          const years = Object.keys(byYear).filter(y => y !== 'Unknown').sort();
+          const nvdData = years.map(y => byYear[y].nvdHigher);
+          const ghData = years.map(y => byYear[y].ghHigher);
+
+          const ctx2 = document.getElementById('yearChart').getContext('2d');
+          new Chart(ctx2, {
+            type: 'bar',
+            data: {
+              labels: years,
+              datasets: [
+                {
+                  label: 'NVD scores higher',
+                  data: nvdData,
+                  backgroundColor: 'rgba(251,146,60,0.75)',
+                  borderColor: 'rgba(251,146,60,1)',
+                  borderWidth: 1,
+                },
+                {
+                  label: 'GitHub scores higher',
+                  data: ghData,
+                  backgroundColor: 'rgba(96,165,250,0.75)',
+                  borderColor: 'rgba(96,165,250,1)',
+                  borderWidth: 1,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: false,
+              plugins: {
+                legend: {
+                  display: true,
+                  labels: { color: '#9ca3af', font: { family: 'Inter', size: 11 } },
+                },
+                tooltip: {
+                  callbacks: {
+                    title: ([item]) => `Year: ${item.label}`,
+                  },
+                },
+              },
+              scales: {
+                x: {
+                  stacked: true,
+                  ticks: { color: '#6b7280' },
+                  grid: { color: 'rgba(45,55,72,0.5)' },
+                },
+                y: {
+                  stacked: true,
+                  title: { display: true, text: 'Conflicts', color: '#9ca3af', font: { family: 'Inter', size: 12 } },
+                  ticks: { color: '#6b7280' },
+                  grid: { color: 'rgba(45,55,72,0.5)' },
+                },
               },
             },
           });

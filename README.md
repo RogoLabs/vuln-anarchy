@@ -1,28 +1,32 @@
 # vuln-anarchy — Vulnerability Anarchy / The Consensus Engine
 
-> ⚠️ **Work in Progress** — This project is actively under development and not yet feature-complete. Data, schema, and UI are subject to change without notice.
-
-**Lab:** [RogoLabs](https://rogolabs.net) · **Status:** Work in Progress · **Launch:** DEF CON 34 (August 2026) · **Deployment:** 100% Static (GitHub Actions + GitHub Pages)
+**Lab:** [RogoLabs](https://rogolabs.net) · **Status:** Live · **Launch:** VulnCon 2025 · **Deployment:** 100% Static (GitHub Actions + GitHub Pages)
 
 > *The vulnerability management ecosystem is fracturing. With the rise of independent CNAs and the shifting role of the NVD, the "truth" of a vulnerability has become subjective.*
 
-**Vulnerability Anarchy** is a data-as-code project that tracks **"Data Drift"** — the measurable delta between how different authorities (NVD, GitHub Advisory Database, OSV.dev, CISA KEV/EPSS) score and describe the same CVE.
+**Vulnerability Anarchy** tracks **"Data Drift"** — the measurable delta between how different authorities score the same CVE. Right now it compares NVD and GitHub Advisory Database CVSS scores across the full corpus. If NVD says 9.8 and GitHub says 2.9, that's a Drift Score of 6.9 — and that matters to every defender who depends on these numbers.
+
+## Live
+
+- **[Drift Leaderboard](https://rogolabs.github.io/vuln-anarchy/)** — top 100 CVEs by score conflict, plus rejected CVEs that still have live GitHub advisories
+- **[Anarchy Map](https://rogolabs.github.io/vuln-anarchy/anarchy-map.html)** — scatter plot of NVD vs GitHub CVSS scores; stacked bar chart of conflicts by publication year
+- **[Export CSV](https://rogolabs.github.io/vuln-anarchy/data/conflicts.csv)** — all ~5,000+ score conflicts as a flat CSV
 
 ## Philosophy
 
-- **No Database:** The repository *is* the database. All data is stored as flat JSON files under `/data/`.
+- **No Database:** The repository *is* the database. All data is stored as flat JSON files under `/docs/data/`.
 - **No Backend:** All processing runs in GitHub Actions. The UI is 100% client-side on GitHub Pages.
-- **Transparency:** Every Drift Score is traceable to a specific commit hash and raw data source.
+- **Transparency:** Every Drift Score is directly traceable to raw API source data and a specific commit.
 
 ## Architecture
 
 ```
-GitHub Actions (Python)          /data/year/CVE-ID.json          GitHub Pages (Static UI)
+GitHub Actions (Python)          /docs/data/{year}/CVE-ID.json   GitHub Pages (Static UI)
 ┌──────────────────────────┐    ┌────────────────────────┐    ┌──────────────────────────┐
 │ Ingestion scripts pull   │───▶│ One JSON per CVE with  │───▶│ Tailwind + Alpine.js     │
-│ from NVD API 2.0,        │    │ all source data +      │    │ fetches JSON directly,   │
-│ GitHub Advisory DB,      │    │ computed Drift Score   │    │ no API calls to backend  │
-│ OSV.dev, CISA KEV/EPSS   │    └────────────────────────┘    └──────────────────────────┘
+│ from NVD API 2.0 and     │    │ all source data +      │    │ fetches JSON directly,   │
+│ GitHub Advisory DB.      │    │ computed Drift Score   │    │ no API calls to backend  │
+│ Runs daily via cron.     │    └────────────────────────┘    └──────────────────────────┘
 └──────────────────────────┘
 ```
 
@@ -30,54 +34,33 @@ All aggregate indexes (leaderboard, Anarchy Map data) are **pre-computed by CI**
 
 ## The Drift Score (Δ)
 
-Three components combined per CVE:
+The Drift Score is simply `|GitHub CVSS − NVD CVSS|`. A score of 6.9 means the two authorities disagree by 6.9 CVSS points.
 
-1. **CVSS Variance** — numerical delta between the highest and lowest reported scores across sources (same CVSS version only — v3.1 vs. v4.0 comparisons are invalid)
-2. **Metadata Conflict** — inconsistencies in CWE assignments or affected-version/CPE strings
-3. **Velocity** — which source first provided actionable intelligence (fix or PoC)
+Rules:
+- **Both sources must have a score** for a CVE to be classified as `conflict`. One source missing → `gap`.
+- **Scores must be the same CVSS version** (v3.1 vs v4.0 comparison is invalid → `gap`).
+- **Rejected CVEs** where NVD has tombstoned the CVE but GitHub still has a live advisory are the most extreme cases and are surfaced separately.
 
 `drift_type` is always one of:
-- `"conflict"` — sources disagree on a value
-- `"gap"` — one or more sources have no data (NVD "Awaiting Analysis", no CVSS from OSV, etc.)
-- `"rejected"` — CVE existence is disputed; sorts to the top of the leaderboard
+- `"conflict"` — both sources scored the same version; they disagree
+- `"gap"` — one or more sources have no data or incompatible versions
+- `"rejected"` — NVD has rejected the CVE; GitHub may still have a live advisory
 
-## Data Sources
+## Data Sources (Phase 1)
 
-| Source | Primary Contribution | Notes |
+| Source | Primary Contribution | Status |
 |---|---|---|
-| NVD API 2.0 | CVSS scores, CWE, CPE strings | Largely republishes CNA-provided scores; record the assigning CNA |
-| GitHub Advisory Database | CVSS v3.1 scores, affected versions | GHSA-* IDs; not all GHSAs have a CVE alias |
-| OSV.dev | Affected package/version ranges | Often has no CVSS; strongest for ecosystem/version metadata |
-| CISA KEV | "Actively exploited" boolean | Not a numeric score — binary flag only |
-| EPSS (First.org) | Probability of exploitation (0–1) | Daily time-series; stored as current + 30d-ago + peak per CVE |
-
-## Frontend Views
-
-### 🗺️ Anarchy Map
-Scatter plot: **X = CVSS Variance**, **Y = EPSS percentile**, **color intensity = source conflict count**. The high-variance + high-EPSS quadrant is the key view — actively exploited CVEs that the industry can't agree how to score.
-
-### 🏆 Drift Leaderboard
-Top 50 most disputed CVEs, pre-computed at CI time. REJECTED/DISPUTED CVEs surface first.
-
-### 🥦 CVE Nutrition Labels
-Traffic-light (🟢🟡🔴) per dimension — never a single letter grade. Each dimension tells a different story about *why* a CVE's data quality is poor.
-
-| Dimension | 🟢 Green | 🟡 Yellow | 🔴 Red |
-|---|---|---|---|
-| **Coverage** | 4/4 sources have data | 2–3/4 | 0–1/4 |
-| **Agreement** | CVSS variance ≤ 0.5 | 0.5–3.0 | > 3.0 or `rejected` |
-| **Timeliness** | NVD analyzed ≤ 7 days after publish | 8–90 days | > 90 days or "Awaiting Analysis" |
-| **Exploitation Signal** ⚠️ | In KEV or EPSS > 90th percentile | EPSS 50th–90th | EPSS < 50th, not in KEV |
-| **Remediation Clarity** | Exact semver ranges, patch linked | Partial version info | CPE strings only or missing |
-| **CWE Quality** | Specific CWE (e.g., CWE-89) | Mid-level CWE (e.g., CWE-693) | CWE-noinfo, CWE-other, or missing |
-
-> ⚠️ **Exploitation Signal color logic is inverted.** 🔴 = high exploitation risk (act now), not bad data quality.
+| NVD API 2.0 | CVSS scores, CWE, CPE strings, publish dates | ✅ Live |
+| GitHub Advisory Database | CVSS v3.1 scores, affected versions, GHSA IDs | ✅ Live |
+| OSV.dev | Affected package/version ranges | Planned |
+| CISA KEV | "Actively exploited" boolean | Planned |
+| EPSS (First.org) | Probability of exploitation (0–1) | Planned |
 
 ## Roadmap
 
-- [ ] **Phase 1 (Spring 2026):** Basic ingestion and CVSS comparison (NVD vs. GitHub Advisory)
-- [ ] **Phase 2 (Summer 2026):** Full Drift Engine, Nutrition Label generation, Anarchy Map
-- [ ] **Phase 3 (August 2026):** Live launch at DEF CON 34
+- [x] **Phase 1:** NVD + GitHub ingestion, Drift Score, Leaderboard, Anarchy Map
+- [ ] **Phase 2:** OSV.dev, CISA KEV, EPSS ingestion; CVE Nutrition Label detail pages
+- [ ] **Phase 3:** Full DEF CON 34 launch with all data sources
 
 ## Project Origin
 

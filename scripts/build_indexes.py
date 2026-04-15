@@ -24,6 +24,14 @@ def leaderboard_sort_key(record: dict):
     return -record.get("drift_score", 0)
 
 
+def _published_date(record: dict) -> str | None:
+    """Return the CVE published date as YYYY-MM-DD, or None if unavailable."""
+    raw = record.get("sources", {}).get("nvd", {}).get("published")
+    if raw:
+        return raw[:10]  # trim to date portion
+    return None
+
+
 def build_leaderboard_entry(record: dict):
     nvd = record.get("sources", {}).get("nvd", {})
     github = record.get("sources", {}).get("github", {})
@@ -39,6 +47,7 @@ def build_leaderboard_entry(record: dict):
         "nvd_status": nvd.get("status"),
         "github_score": github.get("cvss_score"),
         "github_cvss_version": github.get("cvss_version"),
+        "published_date": _published_date(record),
     }
 
 
@@ -50,8 +59,8 @@ def build_anarchy_map_entry(record: dict):
         "nvd_score": nvd.get("cvss_score"),
         "github_score": github.get("cvss_score"),
         "cvss_variance": record.get("cvss_variance", 0),
-        "drift_score": record.get("drift_score", 0),
         "assigning_cna": record.get("assigning_cna"),
+        "published_date": _published_date(record),
     }
 
 
@@ -125,7 +134,6 @@ def main():
         github = r.get("sources", {}).get("github", {})
         conflict_rows.append({
             "cve_id": r["cve_id"],
-            "drift_score": r.get("drift_score", 0),
             "cvss_variance": r.get("cvss_variance", 0),
             "nvd_score": nvd.get("cvss_score", ""),
             "nvd_cvss_version": nvd.get("cvss_version", ""),
@@ -133,10 +141,11 @@ def main():
             "github_cvss_version": github.get("cvss_version", ""),
             "assigning_cna": r.get("assigning_cna", ""),
             "nvd_status": nvd.get("status", ""),
+            "published_date": _published_date(r) or "",
         })
     conflict_rows.sort(key=lambda x: -float(x["cvss_variance"] or 0))
     with CONFLICTS_CSV_PATH.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["cve_id", "drift_score", "cvss_variance", "nvd_score", "nvd_cvss_version", "github_score", "github_cvss_version", "assigning_cna", "nvd_status"])
+        writer = csv.DictWriter(f, fieldnames=["cve_id", "cvss_variance", "nvd_score", "nvd_cvss_version", "github_score", "github_cvss_version", "assigning_cna", "nvd_status", "published_date"])
         writer.writeheader()
         writer.writerows(conflict_rows)
     print(f"Conflicts CSV written: {CONFLICTS_CSV_PATH} ({len(conflict_rows)} entries)")

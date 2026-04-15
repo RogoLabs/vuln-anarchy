@@ -162,6 +162,7 @@
               <th class="px-4 py-3">Type</th>
               <th class="px-4 py-3">Drift Score</th>
               <th class="px-4 py-3">Score Conflict</th>
+              <th class="px-4 py-3">Published</th>
               <th class="px-4 py-3">CNA</th>
               <th class="px-4 py-3">NVD Status</th>
             </tr>
@@ -206,6 +207,7 @@
                     <span x-show="entry.nvd_score == null" class="italic">NVD: no data</span>
                   </div>
                 </td>
+                <td class="px-4 py-3 text-gray-500 text-xs font-mono" x-text="entry.published_date ?? '—'"></td>
                 <td class="px-4 py-3 text-gray-500 text-xs" x-text="entry.assigning_cna ?? '—'"></td>
                 <td class="px-4 py-3 text-xs" :class="statusColor(entry.nvd_status)" x-text="entry.nvd_status ?? '—'"></td>
               </tr>
