@@ -1,6 +1,6 @@
 # vuln-anarchy — Vulnerability Anarchy / The Consensus Engine
 
-**Lab:** [RogoLabs](https://rogolabs.net) · **Status:** Live · **Launch:** VulnCon 2025 · **Deployment:** 100% Static (GitHub Actions + GitHub Pages)
+**Lab:** [RogoLabs](https://rogolabs.net) · **Status:** Live · **Launch:** VulnCon 2026 · **Deployment:** 100% Static (GitHub Actions + GitHub Pages)
 
 > *The vulnerability management ecosystem is fracturing. With the rise of independent CNAs and the shifting role of the NVD, the "truth" of a vulnerability has become subjective.*
 
@@ -46,21 +46,21 @@ Rules:
 - `"gap"` — one or more sources have no data or incompatible versions
 - `"rejected"` — NVD has rejected the CVE; GitHub may still have a live advisory
 
-## Data Sources (Phase 1)
+## Data Sources
 
 | Source | Primary Contribution | Status |
 |---|---|---|
 | NVD API 2.0 | CVSS scores, CWE, CPE strings, publish dates | ✅ Live |
 | GitHub Advisory Database | CVSS v3.1 scores, affected versions, GHSA IDs | ✅ Live |
-| OSV.dev | Affected package/version ranges | Planned |
-| CISA KEV | "Actively exploited" boolean | Planned |
-| EPSS (First.org) | Probability of exploitation (0–1) | Planned |
 
-## Roadmap
+## What's Live
 
-- [x] **Phase 1:** NVD + GitHub ingestion, Drift Score, Leaderboard, Anarchy Map
-- [ ] **Phase 2:** OSV.dev, CISA KEV, EPSS ingestion; CVE Nutrition Label detail pages
-- [ ] **Phase 3:** Full DEF CON 34 launch with all data sources
+- [x] Daily ingestion from NVD API 2.0 and GitHub Advisory Database
+- [x] Drift Score (`|GitHub CVSS − NVD CVSS|`) across 240k+ CVEs
+- [x] Drift Leaderboard — top 100 conflicts + rejected CVEs with live GitHub advisories
+- [x] Anarchy Map — scatter plot (X=NVD, Y=GitHub) + Conflicts by Year bar chart
+- [x] Bulk CSV export of all ~5,000+ score conflicts
+- [x] Pre-computed indexes, no backend, 100% static
 
 ## Project Origin
 
