@@ -13,8 +13,8 @@ ANARCHY_MAP_PATH = INDEXES_DIR / "anarchy-map.json"
 REJECTED_CSV_PATH = DATA_DIR / "rejected-with-ghsa.csv"
 CONFLICTS_CSV_PATH = DATA_DIR / "conflicts.csv"
 
-LEADERBOARD_SIZE = 100
-LEADERBOARD_REJECTED_CAP = 15  # Rejected CVEs are a different kind of anarchy; cap so real conflicts dominate
+LEADERBOARD_SIZE = 100       # Non-rejected entries — always 100 shown when Hide Rejected is on
+LEADERBOARD_REJECTED_CAP = 15  # Rejected CVEs shown when Hide Rejected is off
 
 STATS_PATH = INDEXES_DIR / "stats.json"
 
@@ -81,7 +81,7 @@ def main():
     # Leaderboard: cap rejected CVEs to avoid dominating; fill rest with conflict/gap
     sorted_all = sorted(all_records, key=leaderboard_sort_key)
     rejected = [r for r in sorted_all if r.get("drift_type") == "rejected"][:LEADERBOARD_REJECTED_CAP]
-    others = [r for r in sorted_all if r.get("drift_type") != "rejected"][:LEADERBOARD_SIZE - len(rejected)]
+    others = [r for r in sorted_all if r.get("drift_type") != "rejected"][:LEADERBOARD_SIZE]
     mixed = sorted(rejected + others, key=leaderboard_sort_key)
     leaderboard = [build_leaderboard_entry(r) for r in mixed]
 

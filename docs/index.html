@@ -74,11 +74,12 @@
     <!-- Hero -->
     <div class="mb-8">
       <h1 class="text-3xl sm:text-4xl font-bold text-white mb-2">Drift Leaderboard</h1>
-      <p class="text-gray-400 text-base max-w-3xl">
-        CVEs where the <strong class="text-gray-200">NVD</strong> and
+      <p class="text-gray-400 text-base">
+        CVEs where <strong class="text-gray-200">NVD</strong> and
         <strong class="text-gray-200">GitHub Advisory Database</strong>
-        assign meaningfully different CVSS scores to the same vulnerability.
-        The <span class="text-brand font-semibold">Drift Score</span> measures how much the authorities disagree —
+        assign different CVSS scores to the same vulnerability.
+        The <span class="text-brand font-semibold">Drift Score</span> is simply
+        <span class="font-mono text-gray-300">|GitHub − NVD|</span> —
         a score of <span class="text-brand">6.9</span> means a 6.9-point gap on the same 0–10 scale.
       </p>
     </div>
@@ -109,10 +110,10 @@
       <span class="text-brand text-lg shrink-0">ℹ️</span>
       <div class="text-sm text-gray-400 leading-relaxed">
         <strong class="text-gray-200">How to read this:</strong>
-        <span class="text-yellow-400 font-semibold">conflict</span> rows show CVEs where both sources scored the same CVSS version but disagree on the value — the gap is real.
-        <span class="text-red-400 font-semibold">rejected</span> rows show CVEs that NVD has withdrawn, but GitHub Advisory still actively scores — the most extreme form of anarchy.
-        <span class="text-gray-500 font-semibold">gap</span> rows indicate missing data from one or more sources.
-        The <span class="text-brand font-medium">↑NVD</span> / <span class="text-yellow-300 font-medium">↑GH</span> badges show which authority scores the CVE higher.
+        <span class="text-yellow-400 font-semibold">conflict</span> rows show CVEs where both sources scored the same CVSS version but disagree — Drift Score = <span class="font-mono text-gray-300">|GitHub − NVD|</span>.
+        <span class="text-red-400 font-semibold">rejected</span> rows show CVEs NVD has withdrawn but GitHub Advisory still actively scores — Drift Score = the GitHub score itself.
+        <span class="text-gray-500 font-semibold">gap</span> rows indicate one source is missing data entirely.
+        The <span class="text-brand font-medium">↑NVD</span> / <span class="text-yellow-300 font-medium">↑GH</span> badges show which authority scores higher.
       </div>
     </div>
 

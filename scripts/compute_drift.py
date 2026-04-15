@@ -126,34 +126,18 @@ def source_conflict_count(sources: dict):
 
 
 def compute_drift_score(
-    cvss_variance: float,
-    metadata_conflict: float,
     drift_type: str,
-    other_source_count: int = 0,
+    cvss_variance: float,
     max_other_score: float | None = None,
 ):
     """
-    Drift score (0–10):
-
-    Conflict/gap: variance is the primary signal, metadata adds a bonus.
-      drift_score = min(cvss_variance + metadata_conflict * 2.0, 10.0)
-      A Δ6.9 conflict scores ~7.5 — intuitive: score ≈ CVSS points of disagreement.
-
-    Rejected with other-source data: proportional to the other source's severity.
-      drift_score = 7.0 + (max_other_score / 10.0) * 3.0  → range 7.0–10.0
-      Rejected CVEs still rank high but compete fairly with real conflicts.
-
-    Rejected with no other data (tombstones): 0.1 — stays buried, not interesting.
+    Drift score = |GH − NVD| (i.e. cvss_variance) for conflict/gap CVEs.
+    For rejected CVEs: the GitHub score itself (NVD has no score to compare).
+    Tombstones (rejected, no other source): 0.0.
     """
     if drift_type == "rejected":
-        if other_source_count == 0:
-            return 0.1
-        if max_other_score is not None:
-            return round(7.0 + (max_other_score / 10.0) * 3.0, 2)
-        return 8.0  # other sources have data but no CVSS score
-
-    score = min(cvss_variance + metadata_conflict * 2.0, 10.0)
-    return round(score, 2)
+        return round(max_other_score, 2) if max_other_score is not None else 0.0
+    return round(cvss_variance, 2)
 
 
 def process_file(path: Path):
@@ -176,7 +160,7 @@ def process_file(path: Path):
             max_other_score = max(max_other_score or 0, score)
 
     drift_score = compute_drift_score(
-        cvss_variance, metadata_conflict, drift_type, other_source_count, max_other_score
+        drift_type, cvss_variance, max_other_score
     )
 
     record["drift_score"] = drift_score
