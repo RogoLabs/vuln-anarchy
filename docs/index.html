@@ -100,8 +100,9 @@
         <div class="text-xs text-gray-600 mt-1 truncate" x-text="stats?.max_variance_cve ?? ''"></div>
       </div>
       <div class="stat-card card-accent relative bg-surface-card border border-surface-border rounded-lg p-5 text-center overflow-hidden">
-        <div class="text-3xl font-bold text-red-400 mb-1" x-text="stats ? stats.rejected_scored_count.toLocaleString() : '—'"></div>
-        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">NVD Rejected, GH Scored</div>
+        <div class="text-3xl font-bold text-purple-400 mb-1" x-text="stats ? `Δ${stats.avg_variance.toFixed(2)}` : '—'"></div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">Avg Score Gap</div>
+        <div class="text-xs text-gray-600 mt-1" x-text="stats ? `median Δ${stats.median_variance.toFixed(2)}` : ''"></div>
       </div>
     </div>
 

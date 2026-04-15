@@ -154,6 +154,13 @@ def main():
     top_by_score = max(all_records, key=lambda r: r.get("drift_score", 0), default={})
     top_by_variance = max(all_records, key=lambda r: r.get("cvss_variance", 0), default={})
 
+    variances = sorted(r["cvss_variance"] for r in conflict_records if r.get("cvss_variance") is not None)
+    avg_variance = round(sum(variances) / len(variances), 2) if variances else 0
+    mid = len(variances) // 2
+    median_variance = round(
+        variances[mid] if len(variances) % 2 else (variances[mid - 1] + variances[mid]) / 2, 2
+    ) if variances else 0
+
     stats = {
         "total_cves": len(all_records),
         "conflict_count": len(conflict_records),
@@ -163,6 +170,8 @@ def main():
         "max_drift_cve": top_by_score.get("cve_id", ""),
         "max_variance": top_by_variance.get("cvss_variance", 0),
         "max_variance_cve": top_by_variance.get("cve_id", ""),
+        "avg_variance": avg_variance,
+        "median_variance": median_variance,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     STATS_PATH.write_text(json.dumps(stats, indent=2))
