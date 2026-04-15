@@ -125,13 +125,27 @@
 
       <!-- Table toolbar -->
       <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-surface-border">
-        <span class="text-sm font-medium text-gray-300" x-text="`Top ${entries.length} most disputed CVEs`"></span>
-        <div class="flex items-center gap-1 text-xs text-gray-500">
-          Sort:
+        <div class="flex items-center gap-4">
+          <span class="text-sm font-medium text-gray-300" x-text="`${sorted.length} most disputed CVEs`"></span>
+          <label class="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none">
+            <input type="checkbox" x-model="hideRejected"
+                   class="w-3.5 h-3.5 accent-brand rounded" />
+            <span>Hide Rejected</span>
+          </label>
+        </div>
+        <div class="flex items-center gap-2 text-xs text-gray-500">
+          <a href="data/conflicts.csv" download
+             class="flex items-center gap-1.5 bg-surface-border hover:bg-gray-700 text-gray-300 hover:text-white px-2.5 py-1 rounded transition-colors font-medium">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Export CSV
+          </a>
+          <span>Sort:</span>
           <template x-for="[field, label] in [['drift_score','Drift Score'],['cvss_variance','CVSS Δ'],['github_score','GitHub Score']]" :key="field">
             <button @click="sortBy(field)"
                     :class="sort === field ? 'bg-brand text-white' : 'bg-surface-border text-gray-300 hover:text-white'"
-                    class="px-2.5 py-1 rounded ml-1 transition-colors font-medium"
+                    class="px-2.5 py-1 rounded transition-colors font-medium"
                     x-text="label"></button>
           </template>
         </div>
@@ -224,6 +238,7 @@
         entries: [],
         stats: null,
         sort: 'drift_score',
+        hideRejected: true,
 
         async init() {
           try {
@@ -244,7 +259,10 @@
         sortBy(field) { this.sort = field; },
 
         get sorted() {
-          return [...this.entries].sort((a, b) => (b[this.sort] ?? 0) - (a[this.sort] ?? 0));
+          const rows = this.hideRejected
+            ? this.entries.filter(e => e.drift_type !== 'rejected')
+            : this.entries;
+          return [...rows].sort((a, b) => (b[this.sort] ?? 0) - (a[this.sort] ?? 0));
         },
 
         driftTypeBadge(type) {

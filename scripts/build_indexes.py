@@ -11,6 +11,7 @@ INDEXES_DIR = DATA_DIR / "indexes"
 LEADERBOARD_PATH = INDEXES_DIR / "leaderboard.json"
 ANARCHY_MAP_PATH = INDEXES_DIR / "anarchy-map.json"
 REJECTED_CSV_PATH = DATA_DIR / "rejected-with-ghsa.csv"
+CONFLICTS_CSV_PATH = DATA_DIR / "conflicts.csv"
 
 LEADERBOARD_SIZE = 100
 LEADERBOARD_REJECTED_CAP = 15  # Rejected CVEs are a different kind of anarchy; cap so real conflicts dominate
@@ -111,6 +112,29 @@ def main():
         writer.writeheader()
         writer.writerows(rejected_rows)
     print(f"Rejected-with-GHSA CSV written: {REJECTED_CSV_PATH} ({len(rejected_rows)} entries)")
+
+    # Conflicts CSV: all CVEs where NVD and GitHub have conflicting CVSS scores
+    conflict_rows = []
+    for r in conflict_records:
+        nvd = r.get("sources", {}).get("nvd", {})
+        github = r.get("sources", {}).get("github", {})
+        conflict_rows.append({
+            "cve_id": r["cve_id"],
+            "drift_score": r.get("drift_score", 0),
+            "cvss_variance": r.get("cvss_variance", 0),
+            "nvd_score": nvd.get("cvss_score", ""),
+            "nvd_cvss_version": nvd.get("cvss_version", ""),
+            "github_score": github.get("cvss_score", ""),
+            "github_cvss_version": github.get("cvss_version", ""),
+            "assigning_cna": r.get("assigning_cna", ""),
+            "nvd_status": nvd.get("status", ""),
+        })
+    conflict_rows.sort(key=lambda x: -float(x["cvss_variance"] or 0))
+    with CONFLICTS_CSV_PATH.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["cve_id", "drift_score", "cvss_variance", "nvd_score", "nvd_cvss_version", "github_score", "github_cvss_version", "assigning_cna", "nvd_status"])
+        writer.writeheader()
+        writer.writerows(conflict_rows)
+    print(f"Conflicts CSV written: {CONFLICTS_CSV_PATH} ({len(conflict_rows)} entries)")
 
     # Stats JSON: aggregate numbers for the UI stat cards
     conflict_records = [r for r in all_records if r.get("drift_type") == "conflict"]
