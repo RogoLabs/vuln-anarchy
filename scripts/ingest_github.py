@@ -29,12 +29,12 @@ def build_headers():
 
 
 @retry(
-    retry=retry_if_exception_type(requests.HTTPError),
+    retry=retry_if_exception_type((requests.HTTPError, requests.Timeout, requests.ConnectionError)),
     wait=wait_exponential(multiplier=1, min=4, max=60),
     stop=stop_after_attempt(5),
 )
 def fetch_page(url, params):
-    resp = requests.get(url, headers=build_headers(), params=params, timeout=30)
+    resp = requests.get(url, headers=build_headers(), params=params, timeout=60)
     if resp.status_code == 429:
         raise requests.HTTPError("Rate limited", response=resp)
     resp.raise_for_status()
