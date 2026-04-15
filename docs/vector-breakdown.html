@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vector Breakdown — Vulnerability Anarchy</title>
+  <meta name="description" content="Which CVSS metrics cause the most disagreements between NVD and GitHub Advisory Database? A per-metric breakdown of scoring divergence." />
+  <meta name="author" content="Jerry Gamblin / RogoLabs" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+          colors: {
+            brand: { DEFAULT: '#3b82f6', dark: '#2563eb', light: '#60a5fa' },
+            surface: { DEFAULT: '#0f1117', card: '#1a1d2e', border: '#2d3748' },
+          }
+        }
+      }
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    body { font-family: 'Inter', ui-sans-serif, system-ui; }
+    .card-accent::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+      border-radius: 8px 8px 0 0;
+    }
+  </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-surface-border bg-surface-card sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-brand">⚡</span>
+        <div>
+          <span class="font-bold text-white text-base leading-none">Vulnerability Anarchy</span>
+          <span class="text-gray-500 text-xs ml-2 hidden sm:inline">by RogoLabs</span>
+        </div>
+      </div>
+      <nav class="flex items-center gap-2 sm:gap-4 text-sm">
+        <a href="index.html" class="text-gray-400 hover:text-white transition-colors">Leaderboard</a>
+        <a href="anarchy-map.html" class="text-gray-400 hover:text-white transition-colors">Anarchy Map</a>
+        <span class="text-brand font-medium border-b border-brand pb-0.5">Vector Breakdown</span>
+        <a href="https://github.com/RogoLabs/vuln-anarchy"
+           target="_blank" rel="noopener"
+           class="flex items-center gap-1.5 bg-surface-border hover:bg-gray-700 text-gray-300 hover:text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors">
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/>
+          </svg>
+          GitHub
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <div x-data="vectorBreakdown()" x-init="init()" class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+
+    <!-- Loading / Error -->
+    <div x-show="loading" class="text-center py-24 text-gray-500">Loading vector analysis…</div>
+    <div x-show="error" class="text-center py-24 text-red-400" x-text="error"></div>
+
+    <template x-if="!loading && !error">
+      <div>
+
+        <!-- Hero -->
+        <div class="mb-8">
+          <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3">Vector Breakdown</h1>
+          <p class="text-gray-400 text-base leading-relaxed max-w-3xl">
+            CVSS scores differ for a reason — each score is computed from eight individual metrics.
+            This page identifies <span class="text-gray-300 font-medium">which metrics</span> NVD and GitHub Advisory
+            disagree on most often across all
+            <span class="text-white font-semibold" x-text="data.comparable_conflicts.toLocaleString()"></span>
+            comparable conflict CVEs, and <span class="text-gray-300 font-medium">which authority scores each metric higher</span>
+            when they do disagree.
+          </p>
+        </div>
+
+        <!-- Headline callout: AC finding -->
+        <div class="bg-yellow-900/20 border border-yellow-700/40 rounded-xl p-4 sm:p-5 mb-8">
+          <div class="flex items-start gap-3">
+            <span class="text-yellow-400 text-xl mt-0.5">⚠</span>
+            <div>
+              <p class="text-yellow-300 font-semibold text-sm mb-1">The Exploitability Gap</p>
+              <p class="text-gray-300 text-sm leading-relaxed">
+                When NVD and GitHub disagree on <span class="text-white font-medium">Attack Complexity</span>,
+                NVD calls it <em>Low</em> (easy to exploit) while GitHub calls it <em>High</em>
+                <span class="text-white font-semibold" x-text="acRatio"></span> of the time.
+                An attacker-facing metric where two authoritative sources have a systematic directional bias
+                is a direct risk to any organization using a single source for patch prioritization.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bar chart -->
+        <div class="bg-surface-card border border-surface-border rounded-xl p-5 sm:p-6 mb-8 relative card-accent">
+          <h2 class="text-lg font-semibold text-white mb-1">Disagreement Rate by Metric</h2>
+          <p class="text-gray-500 text-xs mb-4">% of conflict CVEs where NVD and GitHub assign different values for this metric (same CVSS version only)</p>
+          <div class="relative h-56 sm:h-64">
+            <canvas id="metricChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Per-metric cards -->
+        <h2 class="text-lg font-semibold text-white mb-4">Metric Detail</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <template x-for="m in data.metrics" :key="m.key">
+            <div class="bg-surface-card border border-surface-border rounded-xl p-4 flex flex-col gap-3">
+              <!-- Metric header -->
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="font-mono font-bold text-brand text-sm" x-text="m.key"></span>
+                  <p class="text-gray-300 text-xs font-medium mt-0.5" x-text="m.name"></p>
+                </div>
+                <span class="text-2xl font-bold" :class="rateColor(m.disagree_rate)" x-text="`${m.disagree_rate}%`"></span>
+              </div>
+
+              <!-- Directional bar -->
+              <div>
+                <p class="text-gray-500 text-xs mb-1">When they disagree…</p>
+                <div class="flex rounded-full overflow-hidden h-2.5 bg-surface-border">
+                  <div class="bg-orange-400 transition-all"
+                       :style="`width:${directionPct(m, 'nvd')}%`"
+                       :title="`NVD higher: ${m.nvd_higher_count}`"></div>
+                  <div class="bg-blue-400 transition-all"
+                       :style="`width:${directionPct(m, 'gh')}%`"
+                       :title="`GitHub higher: ${m.gh_higher_count}`"></div>
+                </div>
+                <div class="flex justify-between text-xs mt-1">
+                  <span class="text-orange-400" x-text="`NVD higher: ${m.nvd_higher_count}`"></span>
+                  <span class="text-blue-400" x-text="`GH higher: ${m.gh_higher_count}`"></span>
+                </div>
+              </div>
+
+              <!-- Top transition -->
+              <div x-show="m.top_transitions.length > 0">
+                <p class="text-gray-500 text-xs mb-1.5">Most common disagreement</p>
+                <template x-for="t in m.top_transitions.slice(0, 2)" :key="t.transition">
+                  <div class="flex items-center justify-between text-xs mb-1">
+                    <span class="font-mono text-gray-400" x-text="formatTransition(m.key, t.transition)"></span>
+                    <span class="text-gray-500" x-text="`×${t.count}`"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Legend / explainer -->
+        <div class="bg-surface-card border border-surface-border rounded-xl p-5 sm:p-6">
+          <h2 class="text-sm font-semibold text-gray-300 mb-3">How to read this</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-gray-400 leading-relaxed">
+            <div>
+              <p class="text-gray-300 font-medium mb-1">Disagreement Rate</p>
+              The percentage of conflict CVEs where NVD and GitHub assigned a different value for this specific metric.
+              Only CVEs with matching CVSS versions are compared — cross-version comparisons are excluded.
+            </div>
+            <div>
+              <p class="text-gray-300 font-medium mb-1"><span class="text-orange-400">NVD higher</span> vs <span class="text-blue-400">GH higher</span></p>
+              When the two sources disagree, which authority assigns the more severe value for that metric?
+              A strongly skewed bar indicates a systematic bias, not random noise.
+            </div>
+            <div>
+              <p class="text-gray-300 font-medium mb-1">Why it matters</p>
+              A single-metric disagreement can shift the overall CVSS score by 0.1–4.0 points.
+              The metrics with the highest disagreement rates are the primary drivers of the
+              Drift Scores shown in the <a href="index.html" class="text-brand hover:underline">Leaderboard</a>.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </template>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="border-t border-surface-border mt-12 py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-600">
+      <div class="flex items-center gap-3">
+        <span>© 2026 RogoLabs</span>
+        <span class="text-gray-700">·</span>
+        <a href="https://github.com/RogoLabs/vuln-anarchy" target="_blank" rel="noopener" class="text-gray-400 hover:text-white transition-colors">View on GitHub</a>
+        <span class="text-gray-700">·</span>
+        <span>Data: NVD API 2.0 · GitHub Advisory Database</span>
+      </div>
+      <div x-show="data" x-text="data ? `Updated ${new Date(data.generated_at).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})}` : ''" class="text-gray-700"></div>
+    </div>
+  </footer>
+
+  <script>
+    // Expand CVSS metric value abbreviations to full labels
+    const VALUE_LABELS = {
+      AV: { N: 'Network', A: 'Adjacent', L: 'Local', P: 'Physical' },
+      AC: { L: 'Low', H: 'High' },
+      PR: { N: 'None', L: 'Low', H: 'High' },
+      UI: { N: 'None', R: 'Required' },
+      S:  { U: 'Unchanged', C: 'Changed' },
+      C:  { N: 'None', L: 'Low', M: 'Medium', H: 'High' },
+      I:  { N: 'None', L: 'Low', M: 'Medium', H: 'High' },
+      A:  { N: 'None', L: 'Low', M: 'Medium', H: 'High' },
+    };
+
+    function vectorBreakdown() {
+      return {
+        loading: true,
+        error: null,
+        data: null,
+        chart: null,
+
+        async init() {
+          try {
+            const res = await fetch('data/indexes/vector-analysis.json');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            this.data = await res.json();
+          } catch (e) {
+            this.error = `Failed to load data: ${e.message}`;
+          } finally {
+            this.loading = false;
+          }
+          if (this.data) this.$nextTick(() => this.buildChart());
+        },
+
+        get acRatio() {
+          if (!this.data) return '';
+          const ac = this.data.metrics.find(m => m.key === 'AC');
+          if (!ac || ac.disagree_count === 0) return '';
+          const pct = Math.round(ac.nvd_higher_count / ac.disagree_count * 100);
+          return `${pct}%`;
+        },
+
+        rateColor(rate) {
+          if (rate >= 25) return 'text-red-400';
+          if (rate >= 12) return 'text-yellow-400';
+          return 'text-green-400';
+        },
+
+        directionPct(m, which) {
+          const total = m.nvd_higher_count + m.gh_higher_count;
+          if (!total) return 50;
+          return which === 'nvd'
+            ? Math.round(m.nvd_higher_count / total * 100)
+            : Math.round(m.gh_higher_count / total * 100);
+        },
+
+        formatTransition(metricKey, transition) {
+          // "L→H" → "Low → High"
+          const labels = VALUE_LABELS[metricKey] || {};
+          const [from, to] = transition.split('→');
+          const fl = labels[from] || from;
+          const tl = labels[to] || to;
+          return `NVD: ${fl} → GH: ${tl}`;
+        },
+
+        buildChart() {
+          const ctx = document.getElementById('metricChart');
+          if (!ctx || !this.data) return;
+          const metrics = this.data.metrics;
+          const labels = metrics.map(m => `${m.key} — ${m.name}`);
+          const rates = metrics.map(m => m.disagree_rate);
+          const colors = rates.map(r => r >= 25 ? '#f87171' : r >= 12 ? '#facc15' : '#4ade80');
+
+          this.chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [{
+                label: 'Disagreement Rate (%)',
+                data: rates,
+                backgroundColor: colors,
+                borderRadius: 4,
+                borderSkipped: false,
+              }]
+            },
+            options: {
+              indexAxis: 'y',
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: ctx => ` ${ctx.raw}% of conflicts`,
+                  }
+                }
+              },
+              scales: {
+                x: {
+                  min: 0,
+                  max: 40,
+                  ticks: { color: '#9ca3af', callback: v => `${v}%` },
+                  grid: { color: '#2d3748' },
+                },
+                y: {
+                  ticks: { color: '#d1d5db', font: { size: 11 } },
+                  grid: { display: false },
+                }
+              }
+            }
+          });
+        }
+      };
+    }
+  </script>
+</body>
+</html>

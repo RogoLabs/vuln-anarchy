@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Build pre-computed index files: leaderboard.json, anarchy-map.json, stats.json, and rejected-with-ghsa.csv."""
+"""Build pre-computed index files: leaderboard.json, anarchy-map.json, stats.json, vector-analysis.json, and rejected-with-ghsa.csv."""
 
 import csv
 import json
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,6 +18,88 @@ LEADERBOARD_SIZE = 100       # Non-rejected entries — always 100 shown when Hi
 LEADERBOARD_REJECTED_CAP = 15  # Rejected CVEs shown when Hide Rejected is off
 
 STATS_PATH = INDEXES_DIR / "stats.json"
+VECTOR_ANALYSIS_PATH = INDEXES_DIR / "vector-analysis.json"
+
+# CVSS v3 metric metadata: key → (full name, value severity order high→low)
+CVSS_METRICS = {
+    "AV": ("Attack Vector",         {"N": 3, "A": 2, "L": 1, "P": 0}),
+    "AC": ("Attack Complexity",     {"L": 1, "H": 0}),
+    "PR": ("Privileges Required",   {"N": 2, "L": 1, "H": 0}),
+    "UI": ("User Interaction",      {"N": 1, "R": 0}),
+    "S":  ("Scope",                 {"C": 1, "U": 0}),
+    "C":  ("Confidentiality",       {"H": 2, "M": 1, "L": 0, "N": -1}),
+    "I":  ("Integrity",             {"H": 2, "M": 1, "L": 0, "N": -1}),
+    "A":  ("Availability",          {"H": 2, "M": 1, "L": 0, "N": -1}),
+}
+
+
+def _parse_cvss_vector(vector: str) -> dict:
+    """Parse a CVSS v3 vector string into a {metric: value} dict."""
+    if not vector:
+        return {}
+    return {k: v for part in vector.split("/")[1:] for k, v in [part.split(":", 1)] if ":" in part}
+
+
+def build_vector_analysis(conflict_records: list) -> dict:
+    """
+    Compare NVD vs GitHub CVSS vectors for every conflict CVE (same version only).
+    Returns a dict suitable for vector-analysis.json.
+    """
+    metric_total: dict[str, int] = {m: 0 for m in CVSS_METRICS}
+    metric_disagree: dict[str, int] = {m: 0 for m in CVSS_METRICS}
+    metric_nvd_higher: dict[str, int] = {m: 0 for m in CVSS_METRICS}
+    metric_gh_higher: dict[str, int] = {m: 0 for m in CVSS_METRICS}
+    transitions: dict[str, Counter] = {m: Counter() for m in CVSS_METRICS}
+    comparable = 0
+
+    for record in conflict_records:
+        nvd_vec = record.get("sources", {}).get("nvd", {}).get("cvss_vector", "")
+        gh_vec = record.get("sources", {}).get("github", {}).get("cvss_vector", "")
+        if not nvd_vec or not gh_vec:
+            continue
+        if nvd_vec.split("/")[0] != gh_vec.split("/")[0]:
+            continue  # skip cross-version comparisons
+        comparable += 1
+        nvd_m = _parse_cvss_vector(nvd_vec)
+        gh_m = _parse_cvss_vector(gh_vec)
+        for key, (_, severity) in CVSS_METRICS.items():
+            nv, gv = nvd_m.get(key), gh_m.get(key)
+            if nv is None or gv is None:
+                continue
+            metric_total[key] += 1
+            if nv != gv:
+                metric_disagree[key] += 1
+                transitions[key][f"{nv}→{gv}"] += 1
+                ns, gs = severity.get(nv, -99), severity.get(gv, -99)
+                if ns > gs:
+                    metric_nvd_higher[key] += 1
+                elif gs > ns:
+                    metric_gh_higher[key] += 1
+
+    metrics_out = []
+    for key, (name, _) in CVSS_METRICS.items():
+        total = metric_total[key]
+        disagree = metric_disagree[key]
+        top = [{"transition": t, "count": c} for t, c in transitions[key].most_common(5)]
+        metrics_out.append({
+            "key": key,
+            "name": name,
+            "total": total,
+            "disagree_count": disagree,
+            "disagree_rate": round(disagree / total * 100, 1) if total else 0,
+            "nvd_higher_count": metric_nvd_higher[key],
+            "gh_higher_count": metric_gh_higher[key],
+            "top_transitions": top,
+        })
+
+    # Sort by disagree_rate descending for the chart
+    metrics_out.sort(key=lambda x: -x["disagree_rate"])
+
+    return {
+        "comparable_conflicts": comparable,
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "metrics": metrics_out,
+    }
 
 
 def leaderboard_sort_key(record: dict):
@@ -102,6 +185,11 @@ def main():
     anarchy_map = [build_anarchy_map_entry(r) for r in conflict_records]
     ANARCHY_MAP_PATH.write_text(json.dumps(anarchy_map, indent=2))
     print(f"Anarchy Map written: {ANARCHY_MAP_PATH} ({len(anarchy_map)} entries)")
+
+    # Vector Analysis: per-metric CVSS disagreement breakdown
+    vector_analysis = build_vector_analysis(conflict_records)
+    VECTOR_ANALYSIS_PATH.write_text(json.dumps(vector_analysis, indent=2))
+    print(f"Vector Analysis written: {VECTOR_ANALYSIS_PATH} ({vector_analysis['comparable_conflicts']} comparable conflicts)")
 
     # Rejected-with-GHSA CSV: all CVEs rejected by NVD that still have a live GHSA
     rejected_rows = []
