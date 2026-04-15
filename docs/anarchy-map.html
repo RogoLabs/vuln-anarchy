@@ -80,7 +80,7 @@
     </div>
 
     <!-- Stat strip -->
-    <div class="flex flex-wrap gap-4 mb-6 text-sm">
+    <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 mb-6 text-sm">
       <div class="bg-surface-card border border-surface-border rounded-lg px-4 py-2.5 flex items-center gap-2">
         <span class="text-gray-500">CVEs plotted</span>
         <span class="font-bold text-brand" x-text="entries.length.toLocaleString()"></span>
@@ -88,14 +88,14 @@
       <div class="bg-surface-card border border-surface-border rounded-lg px-4 py-2.5 flex items-center gap-2">
         <span class="text-gray-500">Largest gap</span>
         <span class="font-bold text-orange-400" x-text="maxVariance ? `Δ${maxVariance.toFixed(1)}` : '—'"></span>
-        <span class="text-gray-600 text-xs" x-text="maxVarianceCve"></span>
+        <span class="text-gray-600 text-xs hidden sm:inline" x-text="maxVarianceCve"></span>
       </div>
       <div class="bg-surface-card border border-surface-border rounded-lg px-4 py-2.5 flex items-center gap-2">
-        <span class="text-gray-500">NVD scores higher</span>
+        <span class="text-gray-500">NVD higher</span>
         <span class="font-bold text-orange-400" x-text="nvdHigher.toLocaleString()"></span>
       </div>
       <div class="bg-surface-card border border-surface-border rounded-lg px-4 py-2.5 flex items-center gap-2">
-        <span class="text-gray-500">GitHub scores higher</span>
+        <span class="text-gray-500">GH higher</span>
         <span class="font-bold text-blue-400" x-text="ghHigher.toLocaleString()"></span>
       </div>
     </div>
