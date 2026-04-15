@@ -93,7 +93,10 @@ def classify_drift_type(record: dict, cvss_variance: float, by_version: dict):
         return "rejected"
 
     # No NVD score → nothing to compare against; not drift, just a data gap
-    if nvd.get("cvss_score") is None:
+    # A score of 0.0 is also treated as absent — NVD records this when the
+    # CVE is Deferred/unanalyzed with an all-None impact vector, not a real assessment
+    nvd_score = nvd.get("cvss_score")
+    if nvd_score is None or nvd_score <= 0:
         return "gap"
 
     # GitHub must also have a score for a real conflict
