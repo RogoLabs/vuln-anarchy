@@ -43,7 +43,6 @@
           <a href="anarchy-map.html" class="text-gray-400 hover:text-white transition-colors">Anarchy Map</a>
           <a href="vector-breakdown.html" class="text-gray-400 hover:text-white transition-colors hidden sm:inline">Vector Breakdown</a>
           <a href="cna.html" class="text-white font-medium">CNAs</a>
-          <a href="backlog.html" class="text-gray-400 hover:text-white transition-colors hidden sm:inline">Backlog</a>
           <a href="coverage-gap.html" class="text-gray-400 hover:text-white transition-colors hidden sm:inline">Coverage Gap</a>
         </nav>
       </div>
@@ -82,7 +81,7 @@
           </div>
           <div class="bg-surface-card border border-surface-border rounded-xl p-4">
             <div class="text-2xl font-bold text-red-400"
-                 x-text="topCNA?.cna ?? '—'"></div>
+                 x-text="topCNA?.name ?? '—'"></div>
             <div class="text-gray-400 text-xs mt-1">Highest conflict rate CNA</div>
           </div>
           <div class="bg-surface-card border border-surface-border rounded-xl p-4">
@@ -123,30 +122,30 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-surface-border">
-                <template x-for="(row, i) in filtered" :key="row.cna">
+                <template x-for="(row, i) in filtered" :key="row.name">
                   <tr class="transition-colors hover:bg-surface">
                     <td class="px-4 py-3 text-gray-600 text-xs" x-text="i + 1"></td>
-                    <td class="px-4 py-3 font-medium" x-text="row.cna"></td>
+                    <td class="px-4 py-3 font-medium" x-text="row.name"></td>
                     <td class="px-4 py-3 text-right">
                       <div class="flex items-center justify-end gap-2">
                         <div class="h-2 rounded-full bg-surface-border w-20 hidden sm:block">
                           <div class="h-2 rounded-full"
-                               :class="row.conflict_rate >= 0.3 ? 'bg-red-500' : row.conflict_rate >= 0.15 ? 'bg-orange-500' : 'bg-yellow-500'"
-                               :style="`width: ${Math.min(row.conflict_rate * 100, 100)}%`"></div>
+                               :class="row.conflict_rate >= 30 ? 'bg-red-500' : row.conflict_rate >= 15 ? 'bg-orange-500' : 'bg-yellow-500'"
+                               :style="`width: ${Math.min(row.conflict_rate, 100)}%`"></div>
                         </div>
-                        <span :class="row.conflict_rate >= 0.3 ? 'text-red-400' : row.conflict_rate >= 0.15 ? 'text-orange-400' : 'text-yellow-400'"
-                              x-text="`${(row.conflict_rate * 100).toFixed(1)}%`"></span>
+                        <span :class="row.conflict_rate >= 30 ? 'text-red-400' : row.conflict_rate >= 15 ? 'text-orange-400' : 'text-yellow-400'"
+                              x-text="`${row.conflict_rate.toFixed(1)}%`"></span>
                       </div>
                     </td>
-                    <td class="px-4 py-3 text-right text-gray-300 hidden sm:table-cell" x-text="row.conflict_count"></td>
-                    <td class="px-4 py-3 text-right text-gray-500 hidden md:table-cell" x-text="row.total_comparable"></td>
+                    <td class="px-4 py-3 text-right text-gray-300 hidden sm:table-cell" x-text="row.conflicts"></td>
+                    <td class="px-4 py-3 text-right text-gray-500 hidden md:table-cell" x-text="row.comparable"></td>
                     <td class="px-4 py-3 text-right font-mono hidden md:table-cell"
                         :class="row.avg_drift >= 3 ? 'text-red-400' : row.avg_drift >= 1.5 ? 'text-orange-400' : 'text-gray-300'"
                         x-text="row.avg_drift.toFixed(2)"></td>
                     <td class="px-4 py-3 text-right text-red-400 hidden lg:table-cell"
-                        x-text="`${(row.nvd_higher_pct * 100).toFixed(0)}%`"></td>
+                        x-text="row.conflicts ? `${(row.nvd_higher_count / row.conflicts * 100).toFixed(0)}%` : '—'"></td>
                     <td class="px-4 py-3 text-right text-yellow-400 hidden lg:table-cell"
-                        x-text="`${(row.gh_higher_pct * 100).toFixed(0)}%`"></td>
+                        x-text="row.conflicts ? `${(row.gh_higher_count / row.conflicts * 100).toFixed(0)}%` : '—'"></td>
                   </tr>
                 </template>
               </tbody>
@@ -194,7 +193,7 @@
           if (!this.data?.cnas) return [];
           let result = [...this.data.cnas].sort((a, b) => (b[this.sort] ?? 0) - (a[this.sort] ?? 0));
           const q = this.search.trim().toLowerCase();
-          if (q) result = result.filter(r => r.cna.toLowerCase().includes(q));
+          if (q) result = result.filter(r => r.name.toLowerCase().includes(q));
           return result;
         },
       };
