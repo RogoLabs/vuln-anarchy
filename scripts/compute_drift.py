@@ -11,6 +11,24 @@ WEAK_CWES = {"NVD-CWE-noinfo", "NVD-CWE-Other", "CWE-noinfo", "CWE-Other"}
 # Mid-level/generic CWEs — present but not specific
 GENERIC_CWES = {"CWE-693", "CWE-664", "CWE-682", "CWE-435", "CWE-691", "CWE-703", "CWE-707", "CWE-710"}
 
+# CVSS severity bands (CVSS v3 thresholds)
+_SEVERITY_BANDS = [
+    (9.0, "Critical"),
+    (7.0, "High"),
+    (4.0, "Medium"),
+    (0.1, "Low"),
+]
+
+
+def get_severity_band(score: float | None) -> str | None:
+    """Return the CVSS severity band name for a given score."""
+    if score is None or score <= 0:
+        return None
+    for threshold, label in _SEVERITY_BANDS:
+        if score >= threshold:
+            return label
+    return None
+
 
 def collect_cvss_scores(sources: dict):
     """
@@ -125,16 +143,18 @@ def source_conflict_count(sources: dict):
 def compute_drift_score(
     drift_type: str,
     cvss_variance: float,
+    metadata_conflict: float = 0.0,
     max_other_score: float | None = None,
 ):
     """
-    Drift score = |GH − NVD| (i.e. cvss_variance) for conflict/gap CVEs.
+    Drift score = |GH − NVD| + metadata_conflict (capped at 10.0) for conflict/gap CVEs.
+    metadata_conflict (0.0–1.0) adds up to 1 additional point for CWE/version-range gaps.
     For rejected CVEs: the GitHub score itself (NVD has no score to compare).
     Tombstones (rejected, no other source): 0.0.
     """
     if drift_type == "rejected":
         return round(max_other_score, 2) if max_other_score is not None else 0.0
-    return round(cvss_variance, 2)
+    return round(min(cvss_variance + metadata_conflict, 10.0), 2)
 
 
 def process_file(path: Path):
@@ -157,13 +177,38 @@ def process_file(path: Path):
             max_other_score = max(max_other_score or 0, score)
 
     drift_score = compute_drift_score(
-        drift_type, cvss_variance, max_other_score
+        drift_type, cvss_variance, metadata_conflict, max_other_score
     )
+
+    # Severity flip: does the conflict cross a severity band boundary?
+    severity_flip = False
+    severity_flip_direction = None
+    nvd_severity = None
+    gh_severity = None
+    if drift_type == "conflict":
+        nvd_score = sources.get("nvd", {}).get("cvss_score")
+        gh_score = sources.get("github", {}).get("cvss_score")
+        nvd_severity = get_severity_band(nvd_score)
+        gh_severity = get_severity_band(gh_score)
+        if nvd_severity and gh_severity and nvd_severity != gh_severity:
+            severity_flip = True
+            severity_flip_direction = "NVD_higher" if nvd_score > gh_score else "GH_higher"
 
     record["drift_score"] = drift_score
     record["drift_type"] = drift_type
     record["cvss_variance"] = cvss_variance
+    record["metadata_conflict"] = metadata_conflict
     record["source_count"] = other_source_count
+    record["severity_flip"] = severity_flip
+    if severity_flip:
+        record["severity_flip_direction"] = severity_flip_direction
+        record["nvd_severity"] = nvd_severity
+        record["gh_severity"] = gh_severity
+    elif "severity_flip_direction" in record:
+        # Clean up stale fields if a previous run set them
+        record.pop("severity_flip_direction", None)
+        record.pop("nvd_severity", None)
+        record.pop("gh_severity", None)
 
     path.write_text(json.dumps(record, indent=2))
     return drift_score, drift_type

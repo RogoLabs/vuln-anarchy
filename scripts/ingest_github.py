@@ -4,7 +4,7 @@
 import json
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -41,9 +41,15 @@ def fetch_page(url, params):
     return resp
 
 
-def fetch_advisories():
-    """Yield all GitHub Security Advisories, paginated."""
+def fetch_advisories(since: datetime | None = None):
+    """Yield GitHub Security Advisories, paginated.
+
+    If `since` is provided, only advisories updated after that datetime are
+    fetched (incremental mode). Otherwise fetches all reviewed advisories.
+    """
     params = {"per_page": 100, "page": 1, "type": "reviewed"}
+    if since:
+        params["updated_after"] = since.strftime("%Y-%m-%dT%H:%M:%SZ")
     url = GITHUB_API_BASE
 
     while url:
@@ -157,12 +163,21 @@ def merge_into_cve(cve_id: str, github_block: dict):
 
 
 def main():
+    # Use incremental fetch when we already have CVE data files — otherwise do
+    # a full pull to backfill from scratch.
+    existing_files = list(DATA_DIR.glob("**/CVE-*.json"))
+    if existing_files:
+        since = datetime.now(timezone.utc) - timedelta(hours=48)
+        print(f"Incremental update: fetching advisories updated since {since.strftime('%Y-%m-%dT%H:%M:%SZ')}")
+    else:
+        since = None
+        print("Initial backfill: fetching all reviewed GitHub Security Advisories...")
+
     ghsa_map = load_ghsa_map()
     count = 0
     merged = 0
 
-    print("Fetching GitHub Security Advisories...")
-    for advisory in fetch_advisories():
+    for advisory in fetch_advisories(since=since):
         parsed = parse_advisory(advisory)
         ghsa_id = parsed["ghsa_id"]
 

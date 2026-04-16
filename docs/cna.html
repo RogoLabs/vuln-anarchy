@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CNA Conflict Analysis — Vulnerability Anarchy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: '#0f1117',
+            'surface-card': '#1a1d2e',
+            'surface-border': '#2d3748',
+            brand: '#3b82f6',
+            'brand-light': '#60a5fa',
+          },
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style> body { font-family: 'Inter', sans-serif; } </style>
+</head>
+<body class="min-h-full bg-surface text-gray-100" x-data="cnaPage()" x-init="init()">
+
+  <!-- Header -->
+  <header class="border-b border-surface-border sticky top-0 z-40 bg-surface">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-6">
+        <a href="index.html" class="flex items-center gap-2 font-bold text-lg text-white hover:text-brand-light transition-colors">
+          <span class="text-brand">⚡</span>
+          <span class="hidden sm:inline">Vulnerability Anarchy</span>
+          <span class="sm:hidden">VulnAnarchy</span>
+        </a>
+        <nav class="flex items-center gap-4 text-sm">
+          <a href="index.html" class="text-gray-400 hover:text-white transition-colors">Leaderboard</a>
+          <a href="anarchy-map.html" class="text-gray-400 hover:text-white transition-colors">Anarchy Map</a>
+          <a href="vector-breakdown.html" class="text-gray-400 hover:text-white transition-colors hidden sm:inline">Vector Breakdown</a>
+          <a href="cna.html" class="text-white font-medium">CNAs</a>
+          <a href="backlog.html" class="text-gray-400 hover:text-white transition-colors hidden sm:inline">Backlog</a>
+          <a href="coverage-gap.html" class="text-gray-400 hover:text-white transition-colors hidden sm:inline">Coverage Gap</a>
+        </nav>
+      </div>
+      <a href="https://github.com/RogoLabs/vuln-anarchy" target="_blank" rel="noopener"
+         class="flex items-center gap-1.5 bg-surface-border hover:bg-gray-700 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+        GitHub
+      </a>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-8">
+
+    <!-- Page header -->
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-white mb-2">CNA Conflict Rate Analysis</h1>
+      <p class="text-gray-400 max-w-2xl text-sm leading-relaxed">
+        Which CVE Numbering Authorities (CNAs) assign CVSS scores that most frequently disagree with NVD?
+        Only CNAs with 5+ comparable CVEs are shown. Conflict rate = % of CVEs where the score differs by ≥ 0.1.
+      </p>
+    </div>
+
+    <!-- Loading/error -->
+    <div x-show="loading" class="text-center py-24 text-gray-500 text-sm">Loading CNA data…</div>
+    <div x-show="error" class="bg-red-950 border border-red-800 text-red-300 px-4 py-3 rounded-lg text-sm mb-6" x-text="error"></div>
+
+    <!-- Stats cards -->
+    <template x-if="!loading && data">
+      <div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div class="bg-surface-card border border-surface-border rounded-xl p-4">
+            <div class="text-2xl font-bold text-brand" x-text="data.cnas.length"></div>
+            <div class="text-gray-400 text-xs mt-1">CNAs with conflicts</div>
+          </div>
+          <div class="bg-surface-card border border-surface-border rounded-xl p-4">
+            <div class="text-2xl font-bold text-red-400"
+                 x-text="topCNA?.cna ?? '—'"></div>
+            <div class="text-gray-400 text-xs mt-1">Highest conflict rate CNA</div>
+          </div>
+          <div class="bg-surface-card border border-surface-border rounded-xl p-4">
+            <div class="text-2xl font-bold text-orange-400"
+                 x-text="topCNA ? (topCNA.conflict_rate * 100).toFixed(0) + '%' : '—'"></div>
+            <div class="text-gray-400 text-xs mt-1">Peak conflict rate</div>
+          </div>
+          <div class="bg-surface-card border border-surface-border rounded-xl p-4">
+            <div class="text-2xl font-bold text-yellow-400"
+                 x-text="data.generated_at ? data.generated_at.slice(0, 10) : '—'"></div>
+            <div class="text-gray-400 text-xs mt-1">Data as of</div>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-surface-card border border-surface-border rounded-xl overflow-hidden">
+          <div class="px-4 py-3 border-b border-surface-border flex items-center gap-3">
+            <span class="text-sm font-medium text-gray-300" x-text="`${filtered.length} CNAs`"></span>
+            <input x-model="search" type="search" placeholder="Filter by CNA name…"
+                   class="ml-auto bg-surface border border-surface-border text-gray-200 placeholder-gray-600 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-brand w-44" />
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-surface-border text-gray-500 text-xs uppercase tracking-wider">
+                  <th class="px-4 py-3 text-left">#</th>
+                  <th class="px-4 py-3 text-left">CNA</th>
+                  <th class="px-4 py-3 text-right cursor-pointer hover:text-white" @click="sortBy('conflict_rate')">
+                    Conflict Rate <span x-show="sort === 'conflict_rate'">↓</span>
+                  </th>
+                  <th class="px-4 py-3 text-right cursor-pointer hover:text-white hidden sm:table-cell" @click="sortBy('conflict_count')">
+                    Conflicts <span x-show="sort === 'conflict_count'">↓</span>
+                  </th>
+                  <th class="px-4 py-3 text-right hidden md:table-cell">Total CVEs</th>
+                  <th class="px-4 py-3 text-right hidden md:table-cell">Avg Drift</th>
+                  <th class="px-4 py-3 text-right hidden lg:table-cell">NVD Higher %</th>
+                  <th class="px-4 py-3 text-right hidden lg:table-cell">GH Higher %</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-surface-border">
+                <template x-for="(row, i) in filtered" :key="row.cna">
+                  <tr class="transition-colors hover:bg-surface">
+                    <td class="px-4 py-3 text-gray-600 text-xs" x-text="i + 1"></td>
+                    <td class="px-4 py-3 font-medium" x-text="row.cna"></td>
+                    <td class="px-4 py-3 text-right">
+                      <div class="flex items-center justify-end gap-2">
+                        <div class="h-2 rounded-full bg-surface-border w-20 hidden sm:block">
+                          <div class="h-2 rounded-full"
+                               :class="row.conflict_rate >= 0.3 ? 'bg-red-500' : row.conflict_rate >= 0.15 ? 'bg-orange-500' : 'bg-yellow-500'"
+                               :style="`width: ${Math.min(row.conflict_rate * 100, 100)}%`"></div>
+                        </div>
+                        <span :class="row.conflict_rate >= 0.3 ? 'text-red-400' : row.conflict_rate >= 0.15 ? 'text-orange-400' : 'text-yellow-400'"
+                              x-text="`${(row.conflict_rate * 100).toFixed(1)}%`"></span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-300 hidden sm:table-cell" x-text="row.conflict_count"></td>
+                    <td class="px-4 py-3 text-right text-gray-500 hidden md:table-cell" x-text="row.total_comparable"></td>
+                    <td class="px-4 py-3 text-right font-mono hidden md:table-cell"
+                        :class="row.avg_drift >= 3 ? 'text-red-400' : row.avg_drift >= 1.5 ? 'text-orange-400' : 'text-gray-300'"
+                        x-text="row.avg_drift.toFixed(2)"></td>
+                    <td class="px-4 py-3 text-right text-red-400 hidden lg:table-cell"
+                        x-text="`${(row.nvd_higher_pct * 100).toFixed(0)}%`"></td>
+                    <td class="px-4 py-3 text-right text-yellow-400 hidden lg:table-cell"
+                        x-text="`${(row.gh_higher_pct * 100).toFixed(0)}%`"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
+  </main>
+
+  <footer class="border-t border-surface-border mt-12 py-6 text-center text-gray-600 text-xs">
+    Built by <a href="https://rogolabs.net" class="text-brand hover:underline">Jerry Gamblin at RogoLabs</a> ·
+    <a href="https://github.com/RogoLabs/vuln-anarchy" class="text-brand hover:underline">GitHub</a>
+  </footer>
+
+  <script>
+    function cnaPage() {
+      return {
+        loading: true,
+        error: null,
+        data: null,
+        sort: 'conflict_rate',
+        search: '',
+
+        async init() {
+          try {
+            const res = await fetch('data/indexes/cna-stats.json');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            this.data = await res.json();
+          } catch (e) {
+            this.error = `Failed to load CNA data: ${e.message}`;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        sortBy(field) { this.sort = field; },
+
+        get topCNA() {
+          if (!this.data?.cnas?.length) return null;
+          return [...this.data.cnas].sort((a, b) => b.conflict_rate - a.conflict_rate)[0];
+        },
+
+        get filtered() {
+          if (!this.data?.cnas) return [];
+          let result = [...this.data.cnas].sort((a, b) => (b[this.sort] ?? 0) - (a[this.sort] ?? 0));
+          const q = this.search.trim().toLowerCase();
+          if (q) result = result.filter(r => r.cna.toLowerCase().includes(q));
+          return result;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

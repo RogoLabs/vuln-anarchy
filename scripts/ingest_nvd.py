@@ -157,14 +157,19 @@ def extract_cna(source_identifier: str, cve_tags: list):
     return None
 
 
-def days_to_analysis(published: str, last_modified: str, status: str):
-    """Days between publish date and NVD analysis completion."""
-    if status not in ("Analyzed", "Modified"):
+def days_to_analysis(published: str, first_analyzed_at: str | None) -> int | None:
+    """Days between CVE publish date and NVD first completing analysis.
+
+    Uses first_analyzed_at rather than lastModified — lastModified is updated
+    every time NVD touches a record (CNA corrections, rescores, etc.), which
+    would produce an inflated backlog number.
+    """
+    if not first_analyzed_at:
         return None
     try:
         pub = datetime.fromisoformat(published.replace("Z", "+00:00"))
-        mod = datetime.fromisoformat(last_modified.replace("Z", "+00:00"))
-        return (mod - pub).days
+        analyzed = datetime.fromisoformat(first_analyzed_at.replace("Z", "+00:00"))
+        return max(0, (analyzed - pub).days)
     except (ValueError, TypeError):
         return None
 
@@ -178,7 +183,12 @@ def parse_cve(cve: dict) -> dict:
     cvss = extract_cvss(cve.get("metrics", {}))
     cwe = extract_cwe(cve.get("weaknesses", []))
     cna = extract_cna(cve.get("sourceIdentifier", ""), cve.get("cveTags", []))
-    dta = days_to_analysis(published, last_modified, status)
+
+    # first_analyzed_at: the date NVD first completed analysis.
+    # For newly-analyzed CVEs we use last_modified as the best available proxy.
+    # write_cve() will preserve this value on subsequent updates so it is never
+    # overwritten by a later lastModified date.
+    first_analyzed_at = last_modified if status in ("Analyzed", "Modified") else None
 
     return {
         "cve_id": cve_id,
@@ -190,7 +200,8 @@ def parse_cve(cve: dict) -> dict:
                 "status": status,
                 "published": published,
                 "last_modified": last_modified,
-                "days_to_analysis": dta,
+                "first_analyzed_at": first_analyzed_at,
+                "days_to_analysis": days_to_analysis(published, first_analyzed_at),
                 "fetched_at": datetime.now(timezone.utc).isoformat(),
             }
         },
@@ -204,10 +215,26 @@ def write_cve(record: dict):
     year_dir.mkdir(parents=True, exist_ok=True)
     path = year_dir / f"{cve_id}.json"
 
+    new_nvd = record["sources"]["nvd"]
+
     if path.exists():
         existing = json.loads(path.read_text())
+        existing_nvd = existing.get("sources", {}).get("nvd", {})
+
+        # Preserve first_analyzed_at — only set once on the first transition to
+        # Analyzed/Modified; never overwritten by a later lastModified date.
+        if existing_nvd.get("first_analyzed_at"):
+            new_nvd["first_analyzed_at"] = existing_nvd["first_analyzed_at"]
+        # If we now have an analysis date for the first time, capture it
+        # (new_nvd["first_analyzed_at"] is already set from parse_cve)
+
+        # Recompute days_to_analysis against the now-stable first_analyzed_at
+        new_nvd["days_to_analysis"] = days_to_analysis(
+            new_nvd.get("published", ""), new_nvd.get("first_analyzed_at")
+        )
+
         existing["assigning_cna"] = record["assigning_cna"]
-        existing.setdefault("sources", {})["nvd"] = record["sources"]["nvd"]
+        existing.setdefault("sources", {})["nvd"] = new_nvd
         path.write_text(json.dumps(existing, indent=2))
     else:
         path.write_text(json.dumps(record, indent=2))

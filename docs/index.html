@@ -58,6 +58,9 @@
         <span class="text-brand font-medium border-b border-brand pb-0.5">Leaderboard</span>
         <a href="anarchy-map.html" class="text-gray-400 hover:text-white transition-colors">Anarchy Map</a>
         <a href="vector-breakdown.html" class="text-gray-400 hover:text-white transition-colors">Vector Breakdown</a>
+        <a href="cna.html" class="text-gray-400 hover:text-white transition-colors hidden sm:inline">CNAs</a>
+        <a href="backlog.html" class="text-gray-400 hover:text-white transition-colors hidden sm:inline">Backlog</a>
+        <a href="coverage-gap.html" class="text-gray-400 hover:text-white transition-colors hidden sm:inline">Coverage Gap</a>
         <a href="https://github.com/RogoLabs/vuln-anarchy"
            target="_blank" rel="noopener"
            class="flex items-center gap-1.5 bg-surface-border hover:bg-gray-700 text-gray-300 hover:text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors">
@@ -132,7 +135,7 @@
       <div class="px-4 py-3 border-b border-surface-border space-y-2">
         <div class="flex items-center justify-between gap-3">
           <div class="flex items-center gap-3 flex-wrap">
-            <span class="text-sm font-medium text-gray-300" x-text="`${sorted.length} most disputed CVEs`"></span>
+            <span class="text-sm font-medium text-gray-300" x-text="`${filtered.length} most disputed CVEs`"></span>
           </div>
           <a href="data/conflicts.csv" download
              class="flex items-center gap-1.5 bg-surface-border hover:bg-gray-700 text-gray-300 hover:text-white px-2.5 py-1 rounded transition-colors font-medium text-xs shrink-0">
@@ -142,6 +145,15 @@
             <span class="hidden sm:inline">Export CSV</span>
             <span class="sm:hidden">CSV</span>
           </a>
+        </div>
+        <!-- Search + filters -->
+        <div class="flex flex-wrap items-center gap-2">
+          <input x-model="search" type="search" placeholder="Search CVE ID or CNA…"
+                 class="bg-surface border border-surface-border text-gray-200 placeholder-gray-600 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-brand w-44" />
+          <label class="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer select-none">
+            <input type="checkbox" x-model="flipOnly" class="accent-brand" />
+            <span>Severity flips only</span>
+          </label>
         </div>
         <div class="flex items-center gap-2 text-xs text-gray-500 overflow-x-auto pb-0.5">
           <span class="shrink-0">Sort:</span>
@@ -169,13 +181,20 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-surface-border">
-            <template x-for="(entry, i) in sorted" :key="entry.cve_id">
+            <template x-for="(entry, i) in filtered" :key="entry.cve_id">
               <tr class="transition-colors">
                 <td class="px-4 py-3 text-gray-600 text-xs hidden sm:table-cell" x-text="i + 1"></td>
                 <td class="px-4 py-3">
-                  <a :href="`cve.html?id=${entry.cve_id}`"
-                     class="text-brand hover:text-brand-light font-medium hover:underline"
-                     x-text="entry.cve_id"></a>
+                  <div class="flex items-center gap-1.5">
+                    <a :href="`cve.html?id=${entry.cve_id}`"
+                       class="text-brand hover:text-brand-light font-medium hover:underline"
+                       x-text="entry.cve_id"></a>
+                    <template x-if="entry.severity_flip">
+                      <span class="px-1.5 py-0.5 rounded text-xs font-bold bg-red-900 text-red-300 shrink-0"
+                            :title="`Severity flip: NVD=${entry.nvd_severity} vs GH=${entry.gh_severity}`"
+                            x-text="`${entry.nvd_severity?.[0]}→${entry.gh_severity?.[0]}`"></span>
+                    </template>
+                  </div>
                 </td>
                 <td class="px-4 py-3">
                   <span class="font-bold text-base" :class="scoreColor(entry.drift_score)"
@@ -225,6 +244,8 @@
         entries: [],
         stats: null,
         sort: 'drift_score',
+        search: '',
+        flipOnly: false,
 
         async init() {
           try {
@@ -253,6 +274,19 @@
             }
             return (b[this.sort] ?? 0) - (a[this.sort] ?? 0);
           });
+        },
+
+        get filtered() {
+          let result = this.sorted;
+          if (this.flipOnly) result = result.filter(e => e.severity_flip);
+          const q = this.search.trim().toLowerCase();
+          if (q) {
+            result = result.filter(e =>
+              e.cve_id.toLowerCase().includes(q) ||
+              (e.assigning_cna ?? '').toLowerCase().includes(q)
+            );
+          }
+          return result;
         },
 
         scoreColor(score) {
