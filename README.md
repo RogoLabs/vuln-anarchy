@@ -6,12 +6,12 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
-[![Data Updated](https://img.shields.io/badge/Data-Daily-brightgreen.svg)](https://rogolabs.github.io/vuln-anarchy/)
+[![Data Updated](https://img.shields.io/badge/Data-Daily-brightgreen.svg)](https://rogolabs.github.io/consensus-engine/)
 [![Built by RogoLabs](https://img.shields.io/badge/Built%20by-RogoLabs-orange.svg)](https://rogolabs.net)
 
 **The Consensus Engine** is an open-source data project by [RogoLabs](https://rogolabs.net) that continuously measures **scoring divergence** between the [National Vulnerability Database (NVD)](https://nvd.nist.gov/) and the [GitHub Advisory Database](https://github.com/advisories). It surfaces every CVE where these two authoritative sources reach meaningfully different conclusions — and makes that data freely available for research, tooling, and advocacy.
 
-**[→ Score Conflicts](https://rogolabs.github.io/vuln-anarchy/)** · **[→ Conflict Map](https://rogolabs.github.io/vuln-anarchy/conflict-map.html)** · **[→ Download CSV](https://rogolabs.github.io/vuln-anarchy/data/conflicts.csv)**
+**[→ Score Conflicts](https://rogolabs.github.io/consensus-engine/)** · **[→ Conflict Map](https://rogolabs.github.io/consensus-engine/conflict-map.html)** · **[→ Download CSV](https://rogolabs.github.io/consensus-engine/data/conflicts.csv)**
 
 ---
 
@@ -111,7 +111,7 @@ All aggregate indexes (leaderboard, Conflict Map data) are **pre-computed by CI 
 ### Running locally
 
 ```bash
-git clone https://github.com/RogoLabs/vuln-anarchy.git
+git clone https://github.com/RogoLabs/consensus-engine.git
 cd vuln-anarchy
 
 pip install -r requirements.txt
@@ -141,7 +141,7 @@ The pipeline runs on a daily cron. Add `NVD_API_KEY` and `GH_TOKEN` as repositor
 
 ## Interpreting `conflicts.csv`
 
-The CSV export at [`data/conflicts.csv`](https://rogolabs.github.io/vuln-anarchy/data/conflicts.csv) contains every CVE where both NVD and GitHub assigned a score for the same CVSS version and the scores differ.
+The CSV export at [`data/conflicts.csv`](https://rogolabs.github.io/consensus-engine/data/conflicts.csv) contains every CVE where both NVD and GitHub assigned a score for the same CVSS version and the scores differ.
 
 | Column | Type | Description |
 |---|---|---|
