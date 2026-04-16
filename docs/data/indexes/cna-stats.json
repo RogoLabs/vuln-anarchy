@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-16T16:48:16Z",
+  "generated_at": "2026-04-16T18:01:01Z",
   "cnas": [
     {
       "name": "mongodb",
@@ -91,7 +91,7 @@
     },
     {
       "name": "hackerone",
-      "total": 327,
+      "total": 328,
       "comparable": 11,
       "conflicts": 5,
       "conflict_rate": 45.5,
@@ -159,10 +159,10 @@
       "name": "github",
       "total": 8388,
       "comparable": 2989,
-      "conflicts": 937,
-      "conflict_rate": 31.3,
+      "conflicts": 942,
+      "conflict_rate": 31.5,
       "avg_drift": 1.62,
-      "nvd_higher_count": 492,
+      "nvd_higher_count": 497,
       "gh_higher_count": 445,
       "top_cve": "CVE-2024-47821"
     },
@@ -201,7 +201,7 @@
     },
     {
       "name": "mitre",
-      "total": 29572,
+      "total": 29573,
       "comparable": 662,
       "conflicts": 194,
       "conflict_rate": 29.3,
@@ -475,31 +475,20 @@
       "top_cve": "CVE-2024-4596"
     },
     {
+      "name": "trendmicro",
+      "total": 1868,
+      "comparable": 12,
+      "conflicts": 0,
+      "conflict_rate": 0.0,
+      "avg_drift": 0,
+      "nvd_higher_count": 0,
+      "gh_higher_count": 0,
+      "top_cve": null
+    },
+    {
       "name": "596c5446-0ce5-4ba2-aa66-48b3b757a647",
       "total": 12,
       "comparable": 5,
-      "conflicts": 0,
-      "conflict_rate": 0.0,
-      "avg_drift": 0,
-      "nvd_higher_count": 0,
-      "gh_higher_count": 0,
-      "top_cve": null
-    },
-    {
-      "name": "or",
-      "total": 574,
-      "comparable": 8,
-      "conflicts": 0,
-      "conflict_rate": 0.0,
-      "avg_drift": 0,
-      "nvd_higher_count": 0,
-      "gh_higher_count": 0,
-      "top_cve": null
-    },
-    {
-      "name": "ff5b8ace-8b95-4078-9743-eac1ca5451de",
-      "total": 28,
-      "comparable": 10,
       "conflicts": 0,
       "conflict_rate": 0.0,
       "avg_drift": 0,
@@ -519,20 +508,9 @@
       "top_cve": null
     },
     {
-      "name": "ff89ba41-3aa1-4d27-914a-91399e9639e5",
-      "total": 72,
-      "comparable": 23,
-      "conflicts": 0,
-      "conflict_rate": 0.0,
-      "avg_drift": 0,
-      "nvd_higher_count": 0,
-      "gh_higher_count": 0,
-      "top_cve": null
-    },
-    {
-      "name": "trendmicro",
-      "total": 1868,
-      "comparable": 12,
+      "name": "ff5b8ace-8b95-4078-9743-eac1ca5451de",
+      "total": 28,
+      "comparable": 10,
       "conflicts": 0,
       "conflict_rate": 0.0,
       "avg_drift": 0,
@@ -544,6 +522,28 @@
       "name": "vuldb.com",
       "total": 345,
       "comparable": 6,
+      "conflicts": 0,
+      "conflict_rate": 0.0,
+      "avg_drift": 0,
+      "nvd_higher_count": 0,
+      "gh_higher_count": 0,
+      "top_cve": null
+    },
+    {
+      "name": "or",
+      "total": 574,
+      "comparable": 8,
+      "conflicts": 0,
+      "conflict_rate": 0.0,
+      "avg_drift": 0,
+      "nvd_higher_count": 0,
+      "gh_higher_count": 0,
+      "top_cve": null
+    },
+    {
+      "name": "ff89ba41-3aa1-4d27-914a-91399e9639e5",
+      "total": 72,
+      "comparable": 23,
       "conflicts": 0,
       "conflict_rate": 0.0,
       "avg_drift": 0,
